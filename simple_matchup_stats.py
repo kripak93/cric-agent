@@ -25,9 +25,10 @@ class SimpleMatchupStats:
         print(f"Loaded {len(self.df)} records")
         
         # Mapping between abbreviated and full team names
+        # Note: Team names match the actual data format in Opposition column
         self.team_name_map = {
             'CSK': 'Chennai Super Kings',
-            'RCB': 'Royal Chal Bengaluru',
+            'RCB': 'Royal Chal Bengaluru',  # Matches data format
             'PBKS': 'Punjab Kings',
             'DC': 'Delhi Capitals',
             'SRH': 'Sunrisers Hyderabad',
@@ -317,7 +318,15 @@ class SimpleMatchupStats:
         
         # Extract over number
         bowler_data = bowler_data.copy()
-        bowler_data['over_num'] = bowler_data['Overs'].astype(str).str.split('.').str[0].astype(float)
+        try:
+            bowler_data['over_num'] = bowler_data['Overs'].astype(str).str.split('.').str[0].astype(float)
+        except (ValueError, AttributeError):
+            # If parsing fails, return error
+            return {
+                'error': f'Unable to parse over numbers for {bowler}',
+                'powerplay': {},
+                'post_powerplay': {}
+            }
         
         # Split into powerplay (overs 1-6) and post-powerplay (overs 7-20)
         powerplay = bowler_data[bowler_data['over_num'] <= 6]

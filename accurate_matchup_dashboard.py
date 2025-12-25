@@ -317,20 +317,9 @@ def display_team_matchup(stats):
     st.header("🏆 Team Matchup")
     st.markdown("Analyze batting performance of teams against each other")
     
-    # Get unique teams (both abbreviated and full names are supported)
-    teams = ['CSK', 'RCB', 'PBKS', 'DC', 'SRH', 'KKR', 'LSG', 'RR', 'MI', 'GT']
-    team_display = {
-        'CSK': 'Chennai Super Kings',
-        'RCB': 'Royal Challengers Bengaluru',
-        'PBKS': 'Punjab Kings',
-        'DC': 'Delhi Capitals',
-        'SRH': 'Sunrisers Hyderabad',
-        'KKR': 'Kolkata Knight Riders',
-        'LSG': 'Lucknow Super Giants',
-        'RR': 'Rajasthan Royals',
-        'MI': 'Mumbai Indians',
-        'GT': 'Gujarat Titans'
-    }
+    # Get team names from the stats module (centralized mapping)
+    teams = list(stats.team_name_map.keys())
+    team_display = stats.team_name_map
     
     col1, col2 = st.columns(2)
     
