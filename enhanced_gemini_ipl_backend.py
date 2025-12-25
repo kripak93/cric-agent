@@ -242,39 +242,59 @@ ANALYSIS GUIDELINES:
             pp_data = df_copy[(df_copy['Over_Number'] >= 0) & (df_copy['Over_Number'] <= 5)].copy()
             
             if not pp_data.empty:
-                # Group by Player and Match to get per-match stats, then aggregate
-                # This prevents counting cumulative stats multiple times
+                # BOWLING STATS
                 pp_data['Match_ID'] = pp_data['Match⬆'] + '_' + pp_data['Player']
-                
-                # Get the last ball of each player's spell in each match (has cumulative stats)
                 pp_summary = pp_data.groupby('Match_ID').agg({
                     'Player': 'first',
                     'Team': 'first',
-                    'O': 'max',  # Overs bowled in powerplay
-                    'R': 'max',  # Runs conceded (cumulative max)
-                    'W': 'max',  # Wickets taken (cumulative max)
-                    '0': 'sum'   # Count of dot balls
+                    'O': 'max',
+                    'R': 'max',
+                    'W': 'max',
+                    '0': 'sum'
                 })
                 
-                # Now aggregate by player across all matches
                 pp_bowling = pp_summary.groupby('Player').agg({
                     'Team': 'first',
-                    'O': 'sum',     # Total overs in powerplay
-                    'R': 'sum',     # Total runs conceded
-                    'W': 'sum',     # Total wickets
-                    '0': 'sum'      # Total dot balls
+                    'O': 'sum',
+                    'R': 'sum',
+                    'W': 'sum',
+                    '0': 'sum'
                 }).round(2)
                 
-                # Calculate economy rate
                 pp_bowling['Econ'] = (pp_bowling['R'] / pp_bowling['O']).round(2)
-                
-                # Filter for minimum 2 overs bowled
                 pp_bowling = pp_bowling[pp_bowling['O'] >= 2.0]
-                
-                # Sort by economy (lower is better)
                 pp_bowling = pp_bowling.sort_values('Econ', ascending=True)
+                data_subsets['powerplay_bowling'] = pp_bowling.head(10)[['Team', 'O', 'R', 'W', 'Econ', '0']]
                 
-                data_subsets['powerplay'] = pp_bowling.head(10)[['Team', 'O', 'R', 'W', 'Econ', '0']]
+                # BATTING STATS
+                pp_data['Bat_Match_ID'] = pp_data['Match⬆'] + '_' + pp_data['Batsman']
+                pp_bat_summary = pp_data.groupby('Bat_Match_ID').agg({
+                    'Batsman': 'first',
+                    'Team.1': 'first',
+                    'R.1': 'max',  # Runs scored
+                    'B': 'max',    # Balls faced
+                    '4': 'sum',    # Fours
+                    '6': 'sum'     # Sixes
+                })
+                
+                pp_batting = pp_bat_summary.groupby('Batsman').agg({
+                    'Team.1': 'first',
+                    'R.1': 'sum',
+                    'B': 'sum',
+                    '4': 'sum',
+                    '6': 'sum'
+                }).round(2)
+                
+                # Calculate strike rate
+                pp_batting['SR'] = ((pp_batting['R.1'] / pp_batting['B']) * 100).round(2)
+                
+                # Filter for minimum 10 balls faced
+                pp_batting = pp_batting[pp_batting['B'] >= 10]
+                
+                # Sort by runs scored (most aggressive batsmen)
+                pp_batting = pp_batting.sort_values(['R.1', 'SR'], ascending=[False, False])
+                pp_batting.rename(columns={'Team.1': 'Team'}, inplace=True)
+                data_subsets['powerplay_batting'] = pp_batting.head(10)[['Team', 'R.1', 'B', 'SR', '4', '6']]
 
         if 'death' in intents:
             # Extract death overs data (overs 16-19, which is 17th to 20th over)
@@ -316,7 +336,32 @@ ANALYSIS GUIDELINES:
                 # Sort by economy (lower is better)
                 death_bowling = death_bowling.sort_values('Econ', ascending=True)
                 
-                data_subsets['death'] = death_bowling.head(10)[['Team', 'O', 'R', 'W', 'Econ', '0']]
+                data_subsets['death_bowling'] = death_bowling.head(10)[['Team', 'O', 'R', 'W', 'Econ', '0']]
+                
+                # BATTING STATS for death overs
+                death_data['Bat_Match_ID'] = death_data['Match⬆'] + '_' + death_data['Batsman']
+                death_bat_summary = death_data.groupby('Bat_Match_ID').agg({
+                    'Batsman': 'first',
+                    'Team.1': 'first',
+                    'R.1': 'max',
+                    'B': 'max',
+                    '4': 'sum',
+                    '6': 'sum'
+                })
+                
+                death_batting = death_bat_summary.groupby('Batsman').agg({
+                    'Team.1': 'first',
+                    'R.1': 'sum',
+                    'B': 'sum',
+                    '4': 'sum',
+                    '6': 'sum'
+                }).round(2)
+                
+                death_batting['SR'] = ((death_batting['R.1'] / death_batting['B']) * 100).round(2)
+                death_batting = death_batting[death_batting['B'] >= 10]
+                death_batting = death_batting.sort_values(['R.1', 'SR'], ascending=[False, False])
+                death_batting.rename(columns={'Team.1': 'Team'}, inplace=True)
+                data_subsets['death_batting'] = death_batting.head(10)[['Team', 'R.1', 'B', 'SR', '4', '6']]
 
         if 'ground_comparison' in intents or ('ground' in intents and 'comparison' in intents):
             # Extract ground-wise statistics for top players
