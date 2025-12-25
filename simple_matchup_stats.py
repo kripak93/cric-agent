@@ -13,15 +13,18 @@ class SimpleMatchupStats:
     Calculates per-ball runs from cumulative data and provides various matchup statistics.
     """
     
-    def __init__(self, csv_path='ipl_data.csv'):
+    def __init__(self, csv_path='ipl_data.csv', filters=None):
         """
         Initialize the statistics calculator with IPL data.
         
         Args:
             csv_path (str): Path to the CSV file containing ball-by-ball data
+            filters (dict): Optional filters to apply to the data
+                           Supported filters: season, grounds, teams, venue_type, innings
         """
         print(f"Loading data from {csv_path}...")
         self.df = pd.read_csv(csv_path)
+        self.original_df = self.df.copy()  # Keep original for filter info
         print(f"Loaded {len(self.df)} records")
         
         # Mapping between abbreviated and full team names
@@ -42,8 +45,73 @@ class SimpleMatchupStats:
         # Reverse mapping
         self.team_abbrev_map = {v: k for k, v in self.team_name_map.items()}
         
+        # Apply filters if provided
+        self.filters = filters or {}
+        self._apply_filters()
+        
         # Prepare ball-level data
         self._prepare_ball_level_data()
+    
+    def _apply_filters(self):
+        """Apply filters to the dataframe."""
+        if not self.filters:
+            return
+        
+        original_count = len(self.df)
+        
+        # Convert date to datetime for season filtering
+        self.df['Date⬆'] = pd.to_datetime(self.df['Date⬆'])
+        
+        # Season filter
+        if 'seasons' in self.filters and self.filters['seasons']:
+            seasons = self.filters['seasons']
+            if seasons != ['All']:
+                self.df = self.df[self.df['Date⬆'].dt.year.isin(seasons)]
+                print(f"  Filtered by season(s) {seasons}: {len(self.df)} records")
+        
+        # Ground filter
+        if 'grounds' in self.filters and self.filters['grounds']:
+            grounds = self.filters['grounds']
+            if grounds != ['All']:
+                self.df = self.df[self.df['Ground Name'].isin(grounds)]
+                print(f"  Filtered by ground(s): {len(self.df)} records")
+        
+        # Team filter (Opposition)
+        if 'teams' in self.filters and self.filters['teams']:
+            teams = self.filters['teams']
+            if teams != ['All']:
+                self.df = self.df[self.df['Opposition'].isin(teams)]
+                print(f"  Filtered by team(s): {len(self.df)} records")
+        
+        # Venue type filter (Home/Away)
+        if 'venue_type' in self.filters and self.filters['venue_type']:
+            venue_type = self.filters['venue_type']
+            if venue_type != 'All':
+                self.df = self.df[self.df['H/A'] == venue_type.lower()]
+                print(f"  Filtered by venue type '{venue_type}': {len(self.df)} records")
+        
+        # Innings filter
+        if 'innings' in self.filters and self.filters['innings']:
+            innings = self.filters['innings']
+            if innings != 'All':
+                self.df = self.df[self.df['I#'] == int(innings)]
+                print(f"  Filtered by innings {innings}: {len(self.df)} records")
+        
+        if len(self.df) < original_count:
+            print(f"✓ Applied filters: {original_count} → {len(self.df)} records")
+        
+    def get_available_filters(self):
+        """Get all available filter options from the data."""
+        df = self.original_df.copy()
+        df['Date⬆'] = pd.to_datetime(df['Date⬆'])
+        
+        return {
+            'seasons': sorted(df['Date⬆'].dt.year.unique()),
+            'grounds': sorted(df['Ground Name'].unique()),
+            'teams': sorted(df['Opposition'].unique()),
+            'venue_types': ['All', 'Home', 'Away', 'Neutral'],
+            'innings': ['All', '1', '2']
+        }
         
     def _get_team_abbreviation(self, team_name):
         """Get abbreviated team name."""

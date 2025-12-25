@@ -1,21 +1,25 @@
 """
-Accurate Matchup Dashboard
-Interactive Streamlit dashboard for cricket matchup analysis
+AI-Enhanced Matchup Dashboard
+Interactive Streamlit dashboard with Gemini AI insights for cricket matchup analysis
 """
 
 import streamlit as st
 import plotly.graph_objects as go
 from simple_matchup_stats import SimpleMatchupStats
+from enhanced_gemini_ipl_backend import EnhancedGeminiIPLAnalytics
+import os
+from dotenv import load_dotenv
 
+load_dotenv()
 
 # Page configuration
 st.set_page_config(
-    page_title="Cricket Matchup Analytics",
-    page_icon="🏏",
+    page_title="AI-Powered Cricket Analytics",
+    page_icon="🤖",
     layout="wide"
 )
 
-# Initialize stats calculator (cached for performance)
+# Initialize stats calculator and AI backend (cached for performance)
 @st.cache_resource
 def load_stats_with_filters(filters=None):
     """Load and cache the statistics calculator with filters."""
@@ -28,6 +32,19 @@ def get_filter_options():
     """Get available filter options from the data."""
     temp_stats = SimpleMatchupStats('ipl_data.csv')
     return temp_stats.get_available_filters()
+
+
+@st.cache_resource
+def load_ai_backend():
+    """Load and cache the AI analytics backend."""
+    api_key = os.getenv('GEMINI_API_KEY')
+    if not api_key:
+        return None
+    try:
+        return EnhancedGeminiIPLAnalytics('ipl_data.csv', api_key=api_key)
+    except Exception as e:
+        st.error(f"Failed to initialize AI: {str(e)}")
+        return None
 
 
 def get_performance_assessment(strike_rate, dot_percentage):
@@ -54,22 +71,49 @@ def get_effectiveness_rating(economy, dot_percentage):
         return "❌ Expensive", "error"
 
 
-def display_batsman_vs_bowling_type(stats):
-    """Display analysis for batsman vs bowling type."""
+def get_ai_insights(ai_backend, query, context_data=None):
+    """Get AI-powered insights for the matchup."""
+    if ai_backend is None:
+        return None
+    
+    try:
+        # Build comprehensive query with context
+        full_query = query
+        if context_data:
+            full_query = f"{query}\n\nContext Data:\n{context_data}"
+        
+        result = ai_backend.smart_analyze(full_query)
+        return result['gemini_response']
+    except Exception as e:
+        st.warning(f"AI analysis unavailable: {str(e)}")
+        return None
+
+
+def display_ai_insight_box(ai_backend, query, context_data=None):
+    """Display AI insights in an expandable section."""
+    if ai_backend:
+        with st.expander("🤖 AI-Powered Insights", expanded=False):
+            with st.spinner("Generating AI insights..."):
+                insights = get_ai_insights(ai_backend, query, context_data)
+                if insights:
+                    st.markdown(insights)
+                else:
+                    st.info("AI insights not available for this analysis.")
+
+
+def display_batsman_vs_bowling_type(stats, ai_backend):
+    """Display analysis for batsman vs bowling type with AI insights."""
     st.header("🏏 Batsman vs Bowling Type")
     st.markdown("Analyze how a batsman performs against different bowling styles")
     
     col1, col2 = st.columns(2)
     
     with col1:
-        # Get unique batsmen
         batsmen = sorted(stats.df['Batsman'].unique())
         batsman = st.selectbox("Select Batsman", batsmen, key="bt_batsman")
     
     with col2:
-        # Get unique bowling types
         bowling_types = sorted(stats.df['Technique'].unique())
-        # Remove invalid entries
         bowling_types = [bt for bt in bowling_types if bt not in ['-', '']]
         bowling_type = st.selectbox("Select Bowling Type", bowling_types, key="bt_type")
     
@@ -110,7 +154,25 @@ def display_batsman_vs_bowling_type(stats):
                 else:
                     st.error(f"Performance Assessment: {assessment}")
                 
-                # Visualization - Ball type distribution
+                # AI Insights
+                context = f"""
+                Batsman: {result['batsman']}
+                Bowling Type: {result['bowling_type']}
+                Balls Faced: {result['balls']}
+                Runs: {result['runs']}
+                Strike Rate: {result['strike_rate']}
+                Dismissals: {result['dismissals']}
+                Dot %: {result['dot_percentage']}%
+                Boundaries: {result['boundaries']}
+                """
+                
+                display_ai_insight_box(
+                    ai_backend,
+                    f"Provide detailed strategic insights for {batsman} batting against {bowling_type} bowling. Analyze strengths, weaknesses, and tactical recommendations based on the statistics.",
+                    context
+                )
+                
+                # Visualization
                 st.subheader("📈 Ball Distribution")
                 
                 fig = go.Figure(data=[
@@ -133,8 +195,8 @@ def display_batsman_vs_bowling_type(stats):
                 st.plotly_chart(fig, use_container_width=True)
 
 
-def display_head_to_head(stats):
-    """Display head-to-head analysis between batsman and bowler."""
+def display_head_to_head(stats, ai_backend):
+    """Display head-to-head analysis between batsman and bowler with AI insights."""
     st.header("⚔️ Head-to-Head: Batsman vs Bowler")
     st.markdown("Analyze individual matchups between batsman and bowler")
     
@@ -192,10 +254,29 @@ def display_head_to_head(stats):
                 
                 with col3:
                     st.metric("Average", result['average'])
+                
+                # AI Insights for matchup
+                context = f"""
+                Batsman: {result['batsman']}
+                Bowler: {result['bowler']}
+                Balls: {result['balls']}
+                Runs: {result['runs']}
+                Strike Rate: {result['strike_rate']}
+                Dismissals: {result['dismissals']}
+                Dominance: {result['dominance']}
+                Fours: {result['fours']}
+                Sixes: {result['sixes']}
+                """
+                
+                display_ai_insight_box(
+                    ai_backend,
+                    f"Analyze the head-to-head matchup between {batsman} and {bowler}. Who has the advantage and why? What are the key factors in this matchup? Provide strategic recommendations.",
+                    context
+                )
 
 
-def display_bowler_vs_batting_hand(stats):
-    """Display bowler performance vs left/right-handed batsmen."""
+def display_bowler_vs_batting_hand(stats, ai_backend):
+    """Display bowler performance vs left/right-handed batsmen with AI insights."""
     st.header("🎳 Bowler vs Batting Hand")
     st.markdown("Analyze bowler performance against right and left-handed batsmen")
     
@@ -253,10 +334,28 @@ def display_bowler_vs_batting_hand(stats):
                     st.warning(f"Effectiveness Rating: {assessment}")
                 else:
                     st.error(f"Effectiveness Rating: {assessment}")
+                
+                # AI Insights
+                context = f"""
+                Bowler: {result['bowler']}
+                Batting Hand: {result['batting_hand']}
+                Balls: {result['balls']}
+                Runs: {result['runs']}
+                Economy: {result['economy']}
+                Wickets: {result['wickets']}
+                Dot %: {result['dot_percentage']}%
+                """
+                
+                hand_name = "right-handed" if batting_hand == 'R' else "left-handed"
+                display_ai_insight_box(
+                    ai_backend,
+                    f"Analyze {bowler}'s effectiveness against {hand_name} batsmen. What makes them effective or ineffective? Provide tactical insights and recommendations.",
+                    context
+                )
 
 
-def display_bowler_economy_by_phase(stats):
-    """Display bowler economy comparison across phases."""
+def display_bowler_economy_by_phase(stats, ai_backend):
+    """Display bowler economy comparison across phases with AI insights."""
     st.header("⏱️ Bowler Economy by Phase")
     st.markdown("Compare bowler performance in powerplay vs post-powerplay")
     
@@ -296,7 +395,21 @@ def display_bowler_economy_by_phase(stats):
                 # Analysis insight
                 st.info(f"**Analysis:** {result['analysis']}")
                 
-                # Visualization - Economy comparison
+                # AI Insights
+                context = f"""
+                Bowler: {result['bowler']}
+                Powerplay: {pp['balls']} balls, {pp['runs']} runs, {pp['economy']} economy, {pp['wickets']} wickets
+                Post-Powerplay: {post['balls']} balls, {post['runs']} runs, {post['economy']} economy, {post['wickets']} wickets
+                Analysis: {result['analysis']}
+                """
+                
+                display_ai_insight_box(
+                    ai_backend,
+                    f"Analyze {bowler}'s performance across different match phases. What are their strengths in each phase? When should they be used strategically?",
+                    context
+                )
+                
+                # Visualization
                 if result['powerplay']['balls'] > 0 and result['post_powerplay']['balls'] > 0:
                     st.subheader("📈 Economy Rate Comparison")
                     
@@ -320,12 +433,11 @@ def display_bowler_economy_by_phase(stats):
                     st.plotly_chart(fig, use_container_width=True)
 
 
-def display_team_matchup(stats):
-    """Display team vs team matchup analysis."""
+def display_team_matchup(stats, ai_backend):
+    """Display team vs team matchup analysis with AI insights."""
     st.header("🏆 Team Matchup")
     st.markdown("Analyze batting performance of teams against each other")
     
-    # Get team names from the stats module (centralized mapping)
     teams = list(stats.team_name_map.keys())
     team_display = stats.team_name_map
     
@@ -384,7 +496,22 @@ def display_team_matchup(stats):
                 else:
                     st.success(f"**{result['advantage']}**")
                 
-                # Visualization - Run rate comparison
+                # AI Insights
+                context = f"""
+                Team 1: {result['team1_batting']['team']}
+                Team 1 Stats: {t1['balls']} balls, {t1['runs']} runs, {t1['run_rate']} run rate, {t1['boundaries']} boundaries
+                Team 2: {result['team2_batting']['team']}
+                Team 2 Stats: {t2['balls']} balls, {t2['runs']} runs, {t2['run_rate']} run rate, {t2['boundaries']} boundaries
+                Advantage: {result['advantage']}
+                """
+                
+                display_ai_insight_box(
+                    ai_backend,
+                    f"Analyze the matchup between {result['team1_batting']['team']} and {result['team2_batting']['team']}. What are the key strengths and weaknesses? Provide strategic predictions and recommendations.",
+                    context
+                )
+                
+                # Visualization
                 if result['team1_batting']['balls'] > 0 and result['team2_batting']['balls'] > 0:
                     st.subheader("📈 Run Rate Comparison")
                     
@@ -408,10 +535,56 @@ def display_team_matchup(stats):
                     st.plotly_chart(fig, use_container_width=True)
 
 
+def display_ai_chat(ai_backend):
+    """Display AI chat interface for custom queries."""
+    st.header("💬 AI Cricket Assistant")
+    st.markdown("Ask any cricket analytics question!")
+    
+    if ai_backend is None:
+        st.warning("⚠️ AI features require GEMINI_API_KEY in your .env file")
+        st.info("To enable AI features:\n1. Get an API key from Google AI Studio\n2. Add it to your .env file as GEMINI_API_KEY=your_key")
+        return
+    
+    # Initialize chat history
+    if 'chat_history' not in st.session_state:
+        st.session_state.chat_history = []
+    
+    # Display chat history
+    for i, (query, response) in enumerate(st.session_state.chat_history):
+        with st.container():
+            st.markdown(f"**You:** {query}")
+            st.markdown(f"**AI:** {response}")
+            st.markdown("---")
+    
+    # Query input
+    with st.form(key='ai_query_form'):
+        query = st.text_area(
+            "Ask a question:",
+            placeholder="Example: Which bowlers are most effective in powerplay? Who are the best death overs batsmen?",
+            height=100
+        )
+        submit = st.form_submit_button("Ask AI 🤖")
+    
+    if submit and query:
+        with st.spinner("AI is analyzing..."):
+            result = ai_backend.smart_analyze(query)
+            response = result['gemini_response']
+            
+            # Add to history
+            st.session_state.chat_history.append((query, response))
+            
+            # Display latest response
+            st.markdown(f"**You:** {query}")
+            st.markdown(f"**AI:** {response}")
+            
+            # Rerun to update chat history display
+            st.rerun()
+
+
 def main():
     """Main application."""
-    st.title("🏏 Cricket Matchup Analytics")
-    st.markdown("*Accurate cricket statistics from ball-by-ball data*")
+    st.title("🤖 AI-Powered Cricket Matchup Analytics")
+    st.markdown("*Accurate statistics with intelligent AI insights powered by Google Gemini*")
     
     # Sidebar - Filters Section
     st.sidebar.title("🔍 Filters")
@@ -488,8 +661,8 @@ def main():
         st.session_state.apply_filters = True
         st.cache_resource.clear()
     
-    # Load statistics
-    with st.spinner("Loading data..."):
+    # Load statistics and AI backend
+    with st.spinner("Loading data and AI models..."):
         if filters and st.session_state.apply_filters:
             stats = load_stats_with_filters(filters)
             # Show active filters
@@ -498,9 +671,20 @@ def main():
             stats = load_stats_with_filters(None)
             if filters:
                 st.sidebar.info("Click 'Apply Filters' to activate")
+        
+        ai_backend = load_ai_backend()
     
-    # Display record count
-    st.metric("📊 Records", f"{len(stats.df):,}")
+    # Display AI status
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        if ai_backend:
+            st.success("✅ AI Assistant Ready")
+        else:
+            st.warning("⚠️ AI features disabled (no API key found)")
+    
+    with col2:
+        st.metric("📊 Records", f"{len(stats.df):,}")
+    
     st.markdown("---")
     
     # Sidebar for navigation
@@ -513,36 +697,50 @@ def main():
             "Head-to-Head (Batsman vs Bowler)",
             "Bowler vs Batting Hand",
             "Bowler Economy by Phase",
-            "Team Matchup"
+            "Team Matchup",
+            "AI Cricket Assistant"
         ]
     )
     
     # Display selected analysis
     st.sidebar.markdown("---")
+    st.sidebar.markdown("### 🤖 AI Features")
+    st.sidebar.info(
+        "AI-powered insights provide:\n"
+        "• Strategic recommendations\n"
+        "• Pattern recognition\n"
+        "• Tactical analysis\n"
+        "• Performance predictions\n"
+        "• Custom queries"
+    )
+    
+    st.sidebar.markdown("---")
     st.sidebar.markdown("### 📖 About")
     st.sidebar.info(
-        "This dashboard provides accurate cricket statistics "
-        "calculated from ball-by-ball data. All calculations "
-        "use proper cricket formulas for strike rate, economy, "
-        "and other metrics."
+        "This dashboard combines accurate ball-by-ball "
+        "statistics with AI-powered insights from Google Gemini "
+        "to provide comprehensive cricket analytics."
     )
     
     # Main content area
     if analysis_type == "Batsman vs Bowling Type":
-        display_batsman_vs_bowling_type(stats)
+        display_batsman_vs_bowling_type(stats, ai_backend)
     elif analysis_type == "Head-to-Head (Batsman vs Bowler)":
-        display_head_to_head(stats)
+        display_head_to_head(stats, ai_backend)
     elif analysis_type == "Bowler vs Batting Hand":
-        display_bowler_vs_batting_hand(stats)
+        display_bowler_vs_batting_hand(stats, ai_backend)
     elif analysis_type == "Bowler Economy by Phase":
-        display_bowler_economy_by_phase(stats)
+        display_bowler_economy_by_phase(stats, ai_backend)
     elif analysis_type == "Team Matchup":
-        display_team_matchup(stats)
+        display_team_matchup(stats, ai_backend)
+    elif analysis_type == "AI Cricket Assistant":
+        display_ai_chat(ai_backend)
     
     # Footer
     st.markdown("---")
     st.markdown(
         "**Data Source:** IPL Ball-by-Ball Data | "
+        "**AI Model:** Google Gemini 2.5 Flash | "
         "**Calculations:** Per-ball runs from cumulative data (R.1 column) | "
         "**Cricket Stats:** Strike Rate = (Runs/Balls) × 100, "
         "Economy = Runs/(Balls/6)"
