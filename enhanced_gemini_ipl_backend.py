@@ -149,11 +149,14 @@ ANALYSIS GUIDELINES:
             'wickets': ['most wickets', 'top wicket', 'highest wickets', 'best bowler'],
             'batting': ['best batsman', 'highest runs', 'strike rate', 'aggressive'],
             'team': ['team', 'csk', 'mi', 'rcb', 'kkr', 'lsg', 'dc', 'rr', 'pbks', 'gt', 'srh'],
-            'comparison': ['compare', 'vs', 'versus', 'better', 'difference'],
+            'comparison': ['compare', 'vs', 'versus', 'better', 'difference', 'comparison'],
             'technique': ['technique', 'style', 'bowling type', 'batting style'],
-            'ground': ['ground', 'venue', 'stadium', 'wicket'],
+            'ground': ['ground', 'venue', 'stadium', 'wicket', 'pitch'],
             'match': ['match', 'game', 'win', 'lose', 'performance'],
-            'ball_position': ['first ball', 'last ball', 'ball position', '1st ball', '6th ball', 'over position', 'ball of over', '0.1', '0.6']
+            'ball_position': ['first ball', 'last ball', 'ball position', '1st ball', '6th ball', 'over position', 'ball of over', '0.1', '0.6'],
+            'powerplay': ['powerplay', 'pp', 'first 6 overs', 'overs 1-6', 'early overs', 'opening overs'],
+            'death': ['death', 'death overs', 'last overs', 'final overs', 'slog overs', 'overs 16-20'],
+            'ground_comparison': ['performs on', 'different grounds', 'at different venues', 'ground-wise', 'venue-wise', 'where does', 'which ground']
         }
 
         detected_intents = []
@@ -229,6 +232,114 @@ ANALYSIS GUIDELINES:
                 'Player': 'nunique'
             }).round(2)
             data_subsets['team'] = team_stats
+
+        if 'powerplay' in intents:
+            # Extract powerplay data (overs 0-5, which is 1st to 6th over in cricket)
+            df_copy = self.df.copy()
+            df_copy['Over_Number'] = df_copy['Overs'].astype(str).str.split('.').str[0].astype(float)
+            
+            # Filter for powerplay overs (0-5)
+            pp_data = df_copy[(df_copy['Over_Number'] >= 0) & (df_copy['Over_Number'] <= 5)].copy()
+            
+            if not pp_data.empty:
+                # Group by Player and Match to get per-match stats, then aggregate
+                # This prevents counting cumulative stats multiple times
+                pp_data['Match_ID'] = pp_data['Match⬆'] + '_' + pp_data['Player']
+                
+                # Get the last ball of each player's spell in each match (has cumulative stats)
+                pp_summary = pp_data.groupby('Match_ID').agg({
+                    'Player': 'first',
+                    'Team': 'first',
+                    'O': 'max',  # Overs bowled in powerplay
+                    'R': 'max',  # Runs conceded (cumulative max)
+                    'W': 'max',  # Wickets taken (cumulative max)
+                    '0': 'sum'   # Count of dot balls
+                })
+                
+                # Now aggregate by player across all matches
+                pp_bowling = pp_summary.groupby('Player').agg({
+                    'Team': 'first',
+                    'O': 'sum',     # Total overs in powerplay
+                    'R': 'sum',     # Total runs conceded
+                    'W': 'sum',     # Total wickets
+                    '0': 'sum'      # Total dot balls
+                }).round(2)
+                
+                # Calculate economy rate
+                pp_bowling['Econ'] = (pp_bowling['R'] / pp_bowling['O']).round(2)
+                
+                # Filter for minimum 2 overs bowled
+                pp_bowling = pp_bowling[pp_bowling['O'] >= 2.0]
+                
+                # Sort by economy (lower is better)
+                pp_bowling = pp_bowling.sort_values('Econ', ascending=True)
+                
+                data_subsets['powerplay'] = pp_bowling.head(10)[['Team', 'O', 'R', 'W', 'Econ', '0']]
+
+        if 'death' in intents:
+            # Extract death overs data (overs 16-19, which is 17th to 20th over)
+            df_copy = self.df.copy()
+            df_copy['Over_Number'] = df_copy['Overs'].astype(str).str.split('.').str[0].astype(float)
+            
+            # Filter for death overs (16-19)
+            death_data = df_copy[(df_copy['Over_Number'] >= 16) & (df_copy['Over_Number'] <= 19)].copy()
+            
+            if not death_data.empty:
+                # Group by Player and Match to get per-match stats, then aggregate
+                death_data['Match_ID'] = death_data['Match⬆'] + '_' + death_data['Player']
+                
+                # Get the last ball of each player's spell in each match (has cumulative stats)
+                death_summary = death_data.groupby('Match_ID').agg({
+                    'Player': 'first',
+                    'Team': 'first',
+                    'O': 'max',
+                    'R': 'max',
+                    'W': 'max',
+                    '0': 'sum'
+                })
+                
+                # Now aggregate by player across all matches
+                death_bowling = death_summary.groupby('Player').agg({
+                    'Team': 'first',
+                    'O': 'sum',
+                    'R': 'sum',
+                    'W': 'sum',
+                    '0': 'sum'
+                }).round(2)
+                
+                # Calculate economy rate
+                death_bowling['Econ'] = (death_bowling['R'] / death_bowling['O']).round(2)
+                
+                # Filter for minimum 2 overs bowled
+                death_bowling = death_bowling[death_bowling['O'] >= 2.0]
+                
+                # Sort by economy (lower is better)
+                death_bowling = death_bowling.sort_values('Econ', ascending=True)
+                
+                data_subsets['death'] = death_bowling.head(10)[['Team', 'O', 'R', 'W', 'Econ', '0']]
+
+        if 'ground_comparison' in intents or ('ground' in intents and 'comparison' in intents):
+            # Extract ground-wise statistics for top players
+            if 'Ground Name' in self.df.columns:
+                grounds = self.df['Ground Name'].value_counts().head(5).index.tolist()
+                
+                # Get ground-wise aggregate for bowling
+                ground_bowling = []
+                for ground in grounds:
+                    ground_data = self.df[self.df['Ground Name'] == ground]
+                    player_stats = ground_data.groupby('Player').agg({
+                        'O': 'max',
+                        'R': 'max',
+                        'W': 'max',
+                        'Team': 'first'
+                    }).round(2)
+                    player_stats = player_stats[player_stats['O'] >= 2.0]  # Min 2 overs
+                    player_stats['Econ'] = (player_stats['R'] / player_stats['O']).round(2)
+                    player_stats['Ground'] = ground
+                    ground_bowling.append(player_stats.nsmallest(3, 'Econ'))
+                
+                if ground_bowling:
+                    data_subsets['ground_comparison'] = pd.concat(ground_bowling)[['Ground', 'Team', 'O', 'W', 'Econ']]
 
         return data_subsets
 

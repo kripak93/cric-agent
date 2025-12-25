@@ -71,16 +71,47 @@ def get_effectiveness_rating(economy, dot_percentage):
         return "❌ Expensive", "error"
 
 
-def get_ai_insights(ai_backend, query, context_data=None):
-    """Get AI-powered insights for the matchup."""
+def get_filter_context_string(filters):
+    """Convert filter dictionary to readable context string."""
+    if not filters:
+        return "No filters applied (analyzing entire dataset)"
+    
+    context_parts = []
+    if 'seasons' in filters:
+        context_parts.append(f"Seasons: {', '.join(map(str, filters['seasons']))}")
+    if 'grounds' in filters:
+        context_parts.append(f"Grounds: {', '.join(filters['grounds'])}")
+    if 'teams' in filters:
+        context_parts.append(f"Teams: {', '.join(filters['teams'])}")
+    if 'venue_type' in filters:
+        context_parts.append(f"Venue: {filters['venue_type']}")
+    if 'innings' in filters:
+        context_parts.append(f"Innings: {filters['innings']}")
+    
+    return "ACTIVE FILTERS:\n" + "\n".join(context_parts)
+
+
+def get_ai_insights(ai_backend, query, context_data=None, filters=None):
+    """Get AI-powered insights for the matchup with filter awareness."""
     if ai_backend is None:
         return None
     
     try:
         # Build comprehensive query with context
         full_query = query
+        
+        # Add filter context
+        if filters:
+            filter_context = get_filter_context_string(filters)
+            full_query = f"{query}\n\n{filter_context}"
+        
+        # Add regular context data
         if context_data:
-            full_query = f"{query}\n\nContext Data:\n{context_data}"
+            full_query = f"{full_query}\n\nContext Data:\n{context_data}"
+        
+        # Add instruction for filter-aware analysis
+        if filters:
+            full_query += "\n\nIMPORTANT: Analyze how the active filters affect performance. Provide insights specific to the filtered conditions (e.g., 'on this ground', 'in this season', 'at this venue type'). Compare performance under these specific conditions."
         
         result = ai_backend.smart_analyze(full_query)
         return result['gemini_response']
@@ -89,19 +120,19 @@ def get_ai_insights(ai_backend, query, context_data=None):
         return None
 
 
-def display_ai_insight_box(ai_backend, query, context_data=None):
+def display_ai_insight_box(ai_backend, query, context_data=None, filters=None):
     """Display AI insights in an expandable section."""
     if ai_backend:
         with st.expander("🤖 AI-Powered Insights", expanded=False):
             with st.spinner("Generating AI insights..."):
-                insights = get_ai_insights(ai_backend, query, context_data)
+                insights = get_ai_insights(ai_backend, query, context_data, filters)
                 if insights:
                     st.markdown(insights)
                 else:
                     st.info("AI insights not available for this analysis.")
 
 
-def display_batsman_vs_bowling_type(stats, ai_backend):
+def display_batsman_vs_bowling_type(stats, ai_backend, filters=None):
     """Display analysis for batsman vs bowling type with AI insights."""
     st.header("🏏 Batsman vs Bowling Type")
     st.markdown("Analyze how a batsman performs against different bowling styles")
@@ -169,7 +200,8 @@ def display_batsman_vs_bowling_type(stats, ai_backend):
                 display_ai_insight_box(
                     ai_backend,
                     f"Provide detailed strategic insights for {batsman} batting against {bowling_type} bowling. Analyze strengths, weaknesses, and tactical recommendations based on the statistics.",
-                    context
+                    context,
+                    filters
                 )
                 
                 # Visualization
@@ -195,7 +227,7 @@ def display_batsman_vs_bowling_type(stats, ai_backend):
                 st.plotly_chart(fig, use_container_width=True)
 
 
-def display_head_to_head(stats, ai_backend):
+def display_head_to_head(stats, ai_backend, filters=None):
     """Display head-to-head analysis between batsman and bowler with AI insights."""
     st.header("⚔️ Head-to-Head: Batsman vs Bowler")
     st.markdown("Analyze individual matchups between batsman and bowler")
@@ -271,11 +303,12 @@ def display_head_to_head(stats, ai_backend):
                 display_ai_insight_box(
                     ai_backend,
                     f"Analyze the head-to-head matchup between {batsman} and {bowler}. Who has the advantage and why? What are the key factors in this matchup? Provide strategic recommendations.",
-                    context
+                    context,
+                    filters
                 )
 
 
-def display_bowler_vs_batting_hand(stats, ai_backend):
+def display_bowler_vs_batting_hand(stats, ai_backend, filters=None):
     """Display bowler performance vs left/right-handed batsmen with AI insights."""
     st.header("🎳 Bowler vs Batting Hand")
     st.markdown("Analyze bowler performance against right and left-handed batsmen")
@@ -350,11 +383,12 @@ def display_bowler_vs_batting_hand(stats, ai_backend):
                 display_ai_insight_box(
                     ai_backend,
                     f"Analyze {bowler}'s effectiveness against {hand_name} batsmen. What makes them effective or ineffective? Provide tactical insights and recommendations.",
-                    context
+                    context,
+                    filters
                 )
 
 
-def display_bowler_economy_by_phase(stats, ai_backend):
+def display_bowler_economy_by_phase(stats, ai_backend, filters=None):
     """Display bowler economy comparison across phases with AI insights."""
     st.header("⏱️ Bowler Economy by Phase")
     st.markdown("Compare bowler performance in powerplay vs post-powerplay")
@@ -406,7 +440,8 @@ def display_bowler_economy_by_phase(stats, ai_backend):
                 display_ai_insight_box(
                     ai_backend,
                     f"Analyze {bowler}'s performance across different match phases. What are their strengths in each phase? When should they be used strategically?",
-                    context
+                    context,
+                    filters
                 )
                 
                 # Visualization
@@ -433,7 +468,7 @@ def display_bowler_economy_by_phase(stats, ai_backend):
                     st.plotly_chart(fig, use_container_width=True)
 
 
-def display_team_matchup(stats, ai_backend):
+def display_team_matchup(stats, ai_backend, filters=None):
     """Display team vs team matchup analysis with AI insights."""
     st.header("🏆 Team Matchup")
     st.markdown("Analyze batting performance of teams against each other")
@@ -508,7 +543,8 @@ def display_team_matchup(stats, ai_backend):
                 display_ai_insight_box(
                     ai_backend,
                     f"Analyze the matchup between {result['team1_batting']['team']} and {result['team2_batting']['team']}. What are the key strengths and weaknesses? Provide strategic predictions and recommendations.",
-                    context
+                    context,
+                    filters
                 )
                 
                 # Visualization
@@ -723,16 +759,19 @@ def main():
     )
     
     # Main content area
+    # Determine active filters for AI context
+    active_filters = filters if (filters and st.session_state.apply_filters) else None
+    
     if analysis_type == "Batsman vs Bowling Type":
-        display_batsman_vs_bowling_type(stats, ai_backend)
+        display_batsman_vs_bowling_type(stats, ai_backend, active_filters)
     elif analysis_type == "Head-to-Head (Batsman vs Bowler)":
-        display_head_to_head(stats, ai_backend)
+        display_head_to_head(stats, ai_backend, active_filters)
     elif analysis_type == "Bowler vs Batting Hand":
-        display_bowler_vs_batting_hand(stats, ai_backend)
+        display_bowler_vs_batting_hand(stats, ai_backend, active_filters)
     elif analysis_type == "Bowler Economy by Phase":
-        display_bowler_economy_by_phase(stats, ai_backend)
+        display_bowler_economy_by_phase(stats, ai_backend, active_filters)
     elif analysis_type == "Team Matchup":
-        display_team_matchup(stats, ai_backend)
+        display_team_matchup(stats, ai_backend, active_filters)
     elif analysis_type == "AI Cricket Assistant":
         display_ai_chat(ai_backend)
     
