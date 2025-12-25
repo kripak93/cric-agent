@@ -167,6 +167,33 @@ def display_batsman_vs_bowling_type(stats, ai_backend, filters=None):
     st.header("🏏 Batsman vs Bowling Type")
     st.markdown("Analyze how a batsman performs against different bowling styles")
     
+    # Calculation Methodology
+    with st.expander("📊 How are these calculated?", expanded=False):
+        st.markdown("""
+        **Data Source:** Ball-by-ball IPL data with cumulative statistics per delivery
+        
+        **Calculation Methods:**
+        - **Balls Faced:** Count of deliveries faced (excluding wides and no-balls)
+        - **Runs Scored:** Maximum cumulative runs (R.1 column) in the filtered data
+        - **Strike Rate:** (Total Runs / Balls Faced) × 100
+        - **Average:** Total Runs / Dismissals (undefined if no dismissals)
+        - **Dismissals:** Count of balls where wicket was taken (Wkt ≠ '-')
+        - **Boundaries:** Sum of 4s and 6s hit
+        - **Dot Ball %:** (Dot Balls / Total Balls) × 100
+        - **Boundary %:** (Boundaries / Total Balls) × 100
+        
+        **Data Aggregation:**
+        - Statistics are aggregated across all matches in the filtered dataset
+        - Cumulative stats (runs, wickets) use the maximum value per match to avoid double-counting
+        - Each ball is analyzed individually for dots, boundaries, and dismissals
+        
+        **Performance Thresholds:**
+        - 🔥 **Dominant:** Strike Rate ≥ 150 AND Dot % < 35%
+        - ✅ **Solid:** Strike Rate ≥ 120 AND Dot % < 40%
+        - ⚠️ **Cautious:** Strike Rate ≥ 100
+        - ❌ **Struggles:** Strike Rate < 100
+        """)
+    
     col1, col2 = st.columns(2)
     
     with col1:
@@ -191,20 +218,20 @@ def display_batsman_vs_bowling_type(stats, ai_backend, filters=None):
                 col1, col2, col3, col4 = st.columns(4)
                 
                 with col1:
-                    st.metric("Balls Faced", result['balls'])
-                    st.metric("Dismissals", result['dismissals'])
+                    st.metric("Balls Faced", result['balls'], help="Total deliveries faced (excluding wides/no-balls)")
+                    st.metric("Dismissals", result['dismissals'], help="Number of times dismissed by this bowling type")
                 
                 with col2:
-                    st.metric("Runs Scored", result['runs'])
-                    st.metric("Average", result['average'])
+                    st.metric("Runs Scored", result['runs'], help="Total runs from cumulative R.1 column (max per match)")
+                    st.metric("Average", result['average'], help="Runs per dismissal (Runs ÷ Dismissals)")
                 
                 with col3:
-                    st.metric("Strike Rate", f"{result['strike_rate']}")
-                    st.metric("Boundaries", result['boundaries'])
+                    st.metric("Strike Rate", f"{result['strike_rate']}", help="(Runs ÷ Balls) × 100 - measures scoring rate")
+                    st.metric("Boundaries", result['boundaries'], help="Total 4s + 6s hit")
                 
                 with col4:
-                    st.metric("Dot Ball %", f"{result['dot_percentage']}%")
-                    st.metric("Boundary %", f"{result['boundary_percentage']}%")
+                    st.metric("Dot Ball %", f"{result['dot_percentage']}%", help="(Dot Balls ÷ Total Balls) × 100")
+                    st.metric("Boundary %", f"{result['boundary_percentage']}%", help="(Boundaries ÷ Total Balls) × 100")
                 
                 # Performance assessment
                 assessment, level = get_performance_assessment(result['strike_rate'], result['dot_percentage'])
@@ -261,6 +288,28 @@ def display_head_to_head(stats, ai_backend, filters=None):
     """Display head-to-head analysis between batsman and bowler with AI insights."""
     st.header("⚔️ Head-to-Head: Batsman vs Bowler")
     st.markdown("Analyze individual matchups between batsman and bowler")
+    
+    # Calculation Methodology
+    with st.expander("📊 How are these calculated?", expanded=False):
+        st.markdown("""
+        **Data Source:** Ball-by-ball matchup data for specific batsman-bowler pairs
+        
+        **Calculation Methods:**
+        - **Balls Faced:** Total deliveries faced from this specific bowler
+        - **Runs Scored:** Maximum cumulative runs against this bowler
+        - **Strike Rate:** (Runs / Balls) × 100
+        - **Dismissals:** Times dismissed by this specific bowler
+        - **Dot Balls:** Count of balls with 0 runs scored
+        - **Boundaries:** Total 4s and 6s hit off this bowler
+        - **Singles/Doubles:** Balls - Dots - Boundaries
+        
+        **Why This Matters:**
+        - Head-to-head records show historical matchup dynamics
+        - Higher dismissals indicate bowler's dominance
+        - High strike rate with low dismissals shows batsman's dominance
+        - Helps predict future encounters between these players
+        """)
+
     
     col1, col2 = st.columns(2)
     
@@ -422,6 +471,32 @@ def display_bowler_economy_by_phase(stats, ai_backend, filters=None):
     """Display bowler economy comparison across phases with AI insights."""
     st.header("⏱️ Bowler Economy by Phase")
     st.markdown("Compare bowler performance in powerplay vs post-powerplay")
+    
+    # Calculation Methodology
+    with st.expander("📊 How are these calculated?", expanded=False):
+        st.markdown("""
+        **Match Phases Defined:**
+        - **Powerplay:** Overs 0-5 (first 6 overs of innings)
+        - **Post-Powerplay:** Overs 6+ (all remaining overs)
+        
+        **Phase Extraction:**
+        - Over number extracted from 'Overs' column (e.g., 2.3 → Over 2)
+        - Ball-by-ball data grouped by match and phase
+        - Cumulative stats taken at end of each phase per match
+        
+        **Calculation Methods:**
+        - **Overs Bowled:** Sum of overs in that phase across all matches
+        - **Runs Conceded:** Sum of runs given in that phase
+        - **Economy Rate:** (Runs Conceded / Overs) - runs per over
+        - **Wickets:** Total wickets taken in that phase
+        - **Dot Balls:** Count of 0-run deliveries
+        
+        **Why Compare Phases:**
+        - Powerplay: Field restrictions, attacking batting
+        - Post-Powerplay: More fielding options, building pressure
+        - Different bowlers excel in different phases
+        - Helps captains decide bowling changes
+        """)
     
     bowlers = sorted(stats.df['Player'].unique())
     bowler = st.selectbox("Select Bowler", bowlers, key="phase_bowler")
@@ -807,12 +882,51 @@ def main():
     
     # Footer
     st.markdown("---")
+    
+    # Detailed transparency section
+    with st.expander("ℹ️ Data Transparency & Methodology", expanded=False):
+        st.markdown("""
+        ### 📊 Data Source
+        - **Dataset:** IPL Ball-by-Ball Data (34,340 records)
+        - **Seasons:** 2024-2025
+        - **Format:** Cumulative statistics per delivery
+        - **Quality:** 99.99% complete data
+        
+        ### 🔢 Core Calculations
+        **Batting Metrics:**
+        - Strike Rate = (Runs / Balls Faced) × 100
+        - Average = Runs / Dismissals
+        - Boundary % = (Boundaries / Balls) × 100
+        - Dot Ball % = (Dot Balls / Balls) × 100
+        
+        **Bowling Metrics:**
+        - Economy Rate = Runs Conceded / (Balls Bowled / 6)
+        - Strike Rate = Balls Bowled / Wickets
+        - Average = Runs Conceded / Wickets
+        
+        ### 📈 Data Aggregation
+        - Ball-by-ball records aggregated per match
+        - Cumulative columns (R.1, W) use maximum value per match to avoid double-counting
+        - Count-based metrics (dots, boundaries) summed across deliveries
+        - Phase-based analysis splits by over numbers (0-5 = powerplay)
+        
+        ### ✅ Data Integrity
+        - All statistics derived directly from official ball-by-ball data
+        - No estimates or projections used
+        - Filters applied before calculation (not post-processing)
+        - Each analysis shows exact sample size (balls/overs)
+        
+        ### 🤖 AI Analysis
+        - AI receives only the filtered dataset matching your selections
+        - All AI insights based on actual statistics, not external knowledge
+        - Comparative analysis uses same calculation methods across filters
+        """)
+    
     st.markdown(
-        "**Data Source:** IPL Ball-by-Ball Data | "
-        "**AI Model:** Google Gemini 2.5 Flash | "
-        "**Calculations:** Per-ball runs from cumulative data (R.1 column) | "
-        "**Cricket Stats:** Strike Rate = (Runs/Balls) × 100, "
-        "Economy = Runs/(Balls/6)"
+        "**Quick Reference:** Strike Rate = (Runs/Balls) × 100 | "
+        "Economy = Runs/(Balls/6) | "
+        "Powerplay = Overs 0-5 | "
+        "**AI:** Google Gemini 2.5 Flash"
     )
 
 
