@@ -4,6 +4,7 @@ Interactive Streamlit dashboard with Gemini AI insights for cricket matchup anal
 """
 
 import streamlit as st
+import pandas as pd
 import plotly.graph_objects as go
 from simple_matchup_stats import SimpleMatchupStats
 from enhanced_gemini_ipl_backend import EnhancedGeminiIPLAnalytics
@@ -35,13 +36,42 @@ def get_filter_options():
 
 
 @st.cache_resource
-def load_ai_backend():
-    """Load and cache the AI analytics backend."""
+def load_ai_backend(_filters=None):
+    """Load and cache the AI analytics backend with filter support."""
     api_key = os.getenv('GEMINI_API_KEY')
     if not api_key:
         return None
     try:
-        return EnhancedGeminiIPLAnalytics('ipl_data.csv', api_key=api_key)
+        backend = EnhancedGeminiIPLAnalytics('ipl_data.csv', api_key=api_key)
+        
+        # Apply filters to the backend's dataframe if provided
+        if _filters:
+            if 'seasons' in _filters:
+                backend.df['Year'] = pd.to_datetime(backend.df['Date⬆']).dt.year
+                backend.df = backend.df[backend.df['Year'].isin(_filters['seasons'])]
+            
+            if 'grounds' in _filters:
+                backend.df = backend.df[backend.df['Ground Name'].isin(_filters['grounds'])]
+            
+            if 'teams' in _filters:
+                backend.df = backend.df[
+                    (backend.df['Team'].isin(_filters['teams'])) | 
+                    (backend.df['Team.1'].isin(_filters['teams']))
+                ]
+            
+            if 'venue_type' in _filters:
+                if _filters['venue_type'] == 'Homeground':
+                    backend.df = backend.df[backend.df['H/A'] == 'H']
+                elif _filters['venue_type'] == 'Away':
+                    backend.df = backend.df[backend.df['H/A'] == 'A']
+            
+            if 'innings' in _filters:
+                backend.df = backend.df[backend.df['I#'] == _filters['innings']]
+            
+            # Rebuild dataset context after filtering
+            backend.dataset_context = backend._build_dataset_context()
+        
+        return backend
     except Exception as e:
         st.error(f"Failed to initialize AI: {str(e)}")
         return None
@@ -701,14 +731,14 @@ def main():
     with st.spinner("Loading data and AI models..."):
         if filters and st.session_state.apply_filters:
             stats = load_stats_with_filters(filters)
+            ai_backend = load_ai_backend(filters)  # Load AI with filters
             # Show active filters
             st.sidebar.success(f"✅ Filters applied! {len(stats.df)} records")
         else:
             stats = load_stats_with_filters(None)
+            ai_backend = load_ai_backend(None)  # Load AI without filters
             if filters:
                 st.sidebar.info("Click 'Apply Filters' to activate")
-        
-        ai_backend = load_ai_backend()
     
     # Display AI status
     col1, col2 = st.columns([3, 1])
