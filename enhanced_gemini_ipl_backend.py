@@ -147,7 +147,8 @@ ANALYSIS GUIDELINES:
         intent_keywords = {
             'economy': ['best economy', 'lowest economy', 'most economical', 'efficient bowler'],
             'wickets': ['most wickets', 'top wicket', 'highest wickets', 'best bowler'],
-            'batting': ['best batsman', 'highest runs', 'strike rate', 'aggressive'],
+            'batting': ['best batsman', 'highest runs', 'most runs', 'top scorer', 'run scorer'],
+            'strike_rate': ['strike rate', 'fastest scorer', 'aggressive', 'quickest', 'highest sr', 'best sr'],
             'team': ['team', 'csk', 'mi', 'rcb', 'kkr', 'lsg', 'dc', 'rr', 'pbks', 'gt', 'srh'],
             'comparison': ['compare', 'vs', 'versus', 'better', 'difference', 'comparison'],
             'technique': ['technique', 'style', 'bowling type', 'batting style'],
@@ -171,28 +172,140 @@ ANALYSIS GUIDELINES:
         data_subsets = {}
 
         if 'economy' in intents:
-            # Get top 10 by economy (lowest is best) with minimum workload
-            valid_econ = self.df[self.df['Econ'] != '-'].copy()
-            valid_econ['Econ'] = pd.to_numeric(valid_econ['Econ'], errors='coerce')
-            # Filter for minimum 2 overs to get meaningful results
-            valid_econ = valid_econ[valid_econ['O'] >= 2.0]
-            data_subsets['economy'] = valid_econ.nsmallest(10, 'Econ')[
-                ['Player', 'Team', 'O', 'R', 'W', 'Econ']
-            ]
+            # Properly aggregate bowling stats across all matches
+            df_copy = self.df.copy()
+            df_copy['Match_ID'] = df_copy['Match⬆'] + '_' + df_copy['Player']
+            
+            # Get max stats per match (cumulative columns)
+            bowling_summary = df_copy.groupby('Match_ID').agg({
+                'Player': 'first',
+                'Team': 'first',
+                'O': 'max',  # Overs bowled in that match
+                'R': 'max',  # Runs conceded in that match
+                'W': 'max',  # Wickets taken in that match
+                '0': 'sum'   # Dot balls
+            })
+            
+            # Aggregate across all matches per player
+            bowling_stats = bowling_summary.groupby('Player').agg({
+                'Team': 'first',
+                'O': 'sum',   # Total overs across all matches
+                'R': 'sum',   # Total runs conceded
+                'W': 'sum',   # Total wickets
+                '0': 'sum'    # Total dot balls
+            }).round(2)
+            
+            # Calculate economy rate
+            bowling_stats['Econ'] = (bowling_stats['R'] / bowling_stats['O']).round(2)
+            
+            # Filter for minimum 10 overs bowled (meaningful sample)
+            bowling_stats = bowling_stats[bowling_stats['O'] >= 10.0]
+            
+            # Sort by economy (lower is better)
+            bowling_stats = bowling_stats.sort_values('Econ', ascending=True)
+            
+            data_subsets['economy'] = bowling_stats.head(10)[['Team', 'O', 'R', 'W', 'Econ', '0']]
 
         if 'wickets' in intents:
-            # Get top 10 by wickets with minimum workload
-            valid_wickets = self.df[self.df['O'] >= 1.0]  # Minimum 1 over
-            data_subsets['wickets'] = valid_wickets.nlargest(10, 'W')[
-                ['Player', 'Team', 'O', 'W', 'R', 'Econ']
-            ]
+            # Properly aggregate bowling stats for wickets
+            df_copy = self.df.copy()
+            df_copy['Match_ID'] = df_copy['Match⬆'] + '_' + df_copy['Player']
+            
+            bowling_summary = df_copy.groupby('Match_ID').agg({
+                'Player': 'first',
+                'Team': 'first',
+                'O': 'max',
+                'R': 'max',
+                'W': 'max',
+                '0': 'sum'
+            })
+            
+            bowling_stats = bowling_summary.groupby('Player').agg({
+                'Team': 'first',
+                'O': 'sum',
+                'R': 'sum',
+                'W': 'sum',
+                '0': 'sum'
+            }).round(2)
+            
+            bowling_stats['Econ'] = (bowling_stats['R'] / bowling_stats['O']).round(2)
+            
+            # Filter for minimum 5 overs bowled
+            bowling_stats = bowling_stats[bowling_stats['O'] >= 5.0]
+            
+            # Sort by wickets (higher is better)
+            bowling_stats = bowling_stats.sort_values('W', ascending=False)
+            
+            data_subsets['wickets'] = bowling_stats.head(10)[['Team', 'O', 'R', 'W', 'Econ', '0']]
 
         if 'batting' in intents:
-            # Get top 10 batsmen by runs with minimum workload
-            valid_batting = self.df[self.df['B'] >= 10]  # Minimum 10 balls faced
-            data_subsets['batting'] = valid_batting.nlargest(10, 'R.1')[
-                ['Batsman', 'Team.1', 'R.1', 'B', 'RR']
-            ]
+            # Properly aggregate batting stats across all matches
+            df_copy = self.df.copy()
+            df_copy['Match_ID'] = df_copy['Match⬆'] + '_' + df_copy['Batsman']
+            
+            # Get max stats per match (cumulative columns)
+            batting_summary = df_copy.groupby('Match_ID').agg({
+                'Batsman': 'first',
+                'Team.1': 'first',
+                'R.1': 'max',  # Runs in that match
+                'B': 'max',    # Balls faced in that match
+                '4': 'sum',    # Fours
+                '6': 'sum'     # Sixes
+            })
+            
+            # Aggregate across all matches per batsman
+            batting_stats = batting_summary.groupby('Batsman').agg({
+                'Team.1': 'first',
+                'R.1': 'sum',   # Total runs across all matches
+                'B': 'sum',     # Total balls across all matches
+                '4': 'sum',     # Total fours
+                '6': 'sum'      # Total sixes
+            }).round(2)
+            
+            # Calculate strike rate
+            batting_stats['SR'] = ((batting_stats['R.1'] / batting_stats['B']) * 100).round(2)
+            
+            # Filter for minimum 50 balls faced (meaningful sample)
+            batting_stats = batting_stats[batting_stats['B'] >= 50]
+            
+            # Sort by runs scored
+            batting_stats = batting_stats.sort_values('R.1', ascending=False)
+            batting_stats.rename(columns={'Team.1': 'Team'}, inplace=True)
+            
+            data_subsets['batting'] = batting_stats.head(10)[['Team', 'R.1', 'B', 'SR', '4', '6']]
+        
+        if 'strike_rate' in intents:
+            # Extract batsmen sorted by strike rate (minimum sample size)
+            df_copy = self.df.copy()
+            df_copy['Match_ID'] = df_copy['Match⬆'] + '_' + df_copy['Batsman']
+            
+            batting_summary = df_copy.groupby('Match_ID').agg({
+                'Batsman': 'first',
+                'Team.1': 'first',
+                'R.1': 'max',
+                'B': 'max',
+                '4': 'sum',
+                '6': 'sum'
+            })
+            
+            batting_stats = batting_summary.groupby('Batsman').agg({
+                'Team.1': 'first',
+                'R.1': 'sum',
+                'B': 'sum',
+                '4': 'sum',
+                '6': 'sum'
+            }).round(2)
+            
+            batting_stats['SR'] = ((batting_stats['R.1'] / batting_stats['B']) * 100).round(2)
+            
+            # Higher threshold for SR comparison (100 balls minimum)
+            batting_stats = batting_stats[batting_stats['B'] >= 100]
+            
+            # Sort by strike rate (highest first)
+            batting_stats = batting_stats.sort_values('SR', ascending=False)
+            batting_stats.rename(columns={'Team.1': 'Team'}, inplace=True)
+            
+            data_subsets['strike_rate'] = batting_stats.head(10)[['Team', 'R.1', 'B', 'SR', '6']]
 
         if 'ball_position' in intents:
             # Extract ball position data for analysis
@@ -395,38 +508,42 @@ ANALYSIS GUIDELINES:
 USER QUERY: {query}
 DETECTED ANALYSIS TYPE: {', '.join(intents)}
 
-EXTRACTED DATA FOR ANALYSIS:
+=== EXTRACTED DATA FOR ANALYSIS ===
 """
 
+        # Add data with clear section markers
         for data_type, df_data in data.items():
             if df_data is not None and not df_data.empty:
-                prompt += f"\n{data_type.upper()}:\n"
+                prompt += f"\n{'='*60}\n"
+                prompt += f"DATA TABLE: {data_type.upper().replace('_', ' ')}\n"
+                prompt += f"{'='*60}\n"
                 prompt += df_data.head(10).to_string()
-                prompt += "\n"
+                prompt += f"\n(Showing top {min(10, len(df_data))} of {len(df_data)} total entries)\n"
 
-        prompt += """
-CRITICAL INSTRUCTIONS:
-- ONLY use data from the tables above - DO NOT use external cricket knowledge
-- ONLY mention players that appear in the provided data
-- ONLY use statistics from the provided dataset
-- If a player is not in the data above, DO NOT mention them
-- Base ALL analysis strictly on the provided statistics
+        prompt += f"""
+{'='*60}
 
-ANALYSIS TASK:
-1. Analyze ONLY the above data based on the user's query
-2. Provide insights using ONLY the statistics shown above
-3. Compare players using ONLY the data provided
-4. Do not reference any cricket knowledge outside this dataset
-5. If insufficient data, say so rather than using external knowledge
+🚨 CRITICAL INSTRUCTIONS - READ CAREFULLY:
+1. ONLY use players and statistics from the DATA TABLES shown above
+2. If a player name is NOT in the tables above, DO NOT mention them
+3. DO NOT use your general cricket knowledge or historical data
+4. DO NOT invent or estimate any statistics
+5. If data seems insufficient, say "insufficient data" instead of guessing
+6. The tables above show the COMPLETE and ONLY data available for analysis
+
+⚠️ VERIFICATION CHECKLIST:
+- Did you check the player exists in the tables above? 
+- Did you copy the exact statistics from the tables?
+- Did you avoid mentioning any player NOT in the tables?
+- Are you 100% certain this data comes from the tables shown?
 
 RESPONSE FORMAT:
-- Start with direct answer using ONLY the provided data
-- Show supporting statistics from the tables above
-- Highlight findings from the actual data shown
-- Compare using only the players and stats provided
-- End with insights based strictly on this dataset
+1. Start with direct answer citing ONLY players from the tables
+2. Quote exact statistics from the tables (Team, Overs, Runs, Economy, etc.)
+3. If asked for "best" or "highest", use the players at the TOP of the relevant table
+4. Double-check every player name and statistic against the tables before responding
 
-Please provide analysis using ONLY the data shown above:
+Now analyze the query using ONLY the data in the tables above:
 """
         return prompt
 
