@@ -735,9 +735,17 @@ def display_ai_chat(ai_backend):
             # Show extracted data for verification
             extracted_data = result.get('extracted_data', {})
             
-            # Debug: Show what we got
-            if data_extracted > 0:
-                st.write(f"🔍 Debug: data_extracted={data_extracted}, has_extracted_data={bool(extracted_data)}, types={list(extracted_data.keys()) if extracted_data else []}")
+            # Debug: Show what we got - VERY VISIBLE
+            st.write("---")
+            st.write("🔍 **DEBUG INFO:**")
+            st.write(f"- data_extracted count: {data_extracted}")
+            st.write(f"- has 'extracted_data' key: {'extracted_data' in result}")
+            st.write(f"- extracted_data is truthy: {bool(extracted_data)}")
+            if extracted_data:
+                st.write(f"- data types found: {list(extracted_data.keys())}")
+                for dtype in extracted_data.keys():
+                    st.write(f"  - {dtype}: {len(extracted_data[dtype]) if extracted_data[dtype] is not None else 0} rows")
+            st.write("---")
             
             if data_extracted > 0 and extracted_data:
                 with st.expander("📊 Data Extracted (View Accurate Statistics Here)", expanded=True):
@@ -857,7 +865,7 @@ def main():
                 st.sidebar.info("Click 'Apply Filters' to activate")
     
     # Display AI status
-    col1, col2 = st.columns([3, 1])
+    col1, col2, col3 = st.columns([3, 1, 1])
     with col1:
         if ai_backend:
             st.success("✅ AI Assistant Ready")
@@ -866,6 +874,11 @@ def main():
     
     with col2:
         st.metric("📊 Records", f"{len(stats.df):,}")
+    
+    with col3:
+        if st.button("🔄 Clear Cache"):
+            st.cache_resource.clear()
+            st.rerun()
     
     st.markdown("---")
     
