@@ -722,9 +722,23 @@ def display_ai_chat(ai_backend):
             response = result['gemini_response']
             data_extracted = result.get('data_extracted', 0)
             error = result.get('error', None)
+            extracted_data = result.get('extracted_data', {})
             
             # Show the data that was used
             st.markdown(f"**You:** {query}")
+            
+            # ALWAYS show data tables first, before AI response
+            st.markdown("### 📊 Extracted Data")
+            if extracted_data:
+                for data_type, df_data in extracted_data.items():
+                    if df_data is not None and not df_data.empty:
+                        with st.expander(f"**{data_type.upper().replace('_', ' ')}**", expanded=True):
+                            st.dataframe(df_data.head(10), use_container_width=True)
+                            st.caption(f"Top {min(10, len(df_data))} of {len(df_data)} entries")
+            else:
+                st.info("No specific data extracted for this query")
+            
+            st.markdown("---")
             
             # Handle rate limit or errors
             if error == 'rate_limit':
@@ -732,37 +746,8 @@ def display_ai_chat(ai_backend):
             elif error:
                 st.warning(f"⚠️ AI encountered an issue: {error}")
             
-            # Show extracted data for verification
-            extracted_data = result.get('extracted_data', {})
-            
-            # Debug: Show what we got - VERY VISIBLE
-            st.write("---")
-            st.write("🔍 **DEBUG INFO:**")
-            st.write(f"- data_extracted count: {data_extracted}")
-            st.write(f"- has 'extracted_data' key: {'extracted_data' in result}")
-            st.write(f"- extracted_data is truthy: {bool(extracted_data)}")
-            if extracted_data:
-                st.write(f"- data types found: {list(extracted_data.keys())}")
-                for dtype in extracted_data.keys():
-                    st.write(f"  - {dtype}: {len(extracted_data[dtype]) if extracted_data[dtype] is not None else 0} rows")
-            st.write("---")
-            
-            if data_extracted > 0 and extracted_data:
-                with st.expander("📊 Data Extracted (View Accurate Statistics Here)", expanded=True):
-                    st.info(f"✅ AI analyzed {data_extracted} data tables from your filtered dataset")
-                    
-                    # Use the actual extracted data from the result
-                    for data_type, df_data in extracted_data.items():
-                        if df_data is not None and not df_data.empty:
-                            st.markdown(f"**{data_type.upper().replace('_', ' ')}:**")
-                            st.dataframe(df_data.head(10), use_container_width=True)
-                            st.caption(f"Showing top {min(10, len(df_data))} of {len(df_data)} total entries")
-                    
-                    st.warning("⚠️ **Verify AI Response:** Check if the players and stats mentioned by the AI match the data tables above. AI may occasionally hallucinate.")
-            else:
-                st.warning("⚠️ No specific data extracted - AI response may be based on general knowledge")
-            
             st.markdown(f"**AI:** {response}")
+            st.caption("💡 Always verify AI responses against the actual statistics in your analysis tabs")
             
             # Add to history
             st.session_state.chat_history.append((query, response))
@@ -775,6 +760,7 @@ def main():
     """Main application."""
     st.title("🤖 AI-Powered Cricket Matchup Analytics")
     st.markdown("*Accurate statistics with intelligent AI insights powered by Google Gemini*")
+    st.caption("🔄 Version: 2025-12-26-v4 | Updated: Just now")  # Version marker
     
     # Sidebar - Filters Section
     st.sidebar.title("🔍 Filters")
