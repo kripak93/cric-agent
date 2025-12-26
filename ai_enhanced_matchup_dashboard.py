@@ -734,6 +734,11 @@ def display_ai_chat(ai_backend):
             
             # Show extracted data for verification
             extracted_data = result.get('extracted_data', {})
+            
+            # Debug: Show what we got
+            if data_extracted > 0:
+                st.write(f"🔍 Debug: data_extracted={data_extracted}, has_extracted_data={bool(extracted_data)}, types={list(extracted_data.keys()) if extracted_data else []}")
+            
             if data_extracted > 0 and extracted_data:
                 with st.expander("📊 Data Extracted (View Accurate Statistics Here)", expanded=True):
                     st.info(f"✅ AI analyzed {data_extracted} data tables from your filtered dataset")
