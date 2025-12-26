@@ -36,7 +36,7 @@ def get_filter_options():
 
 
 @st.cache_resource
-def load_ai_backend(_filters=None, _version=2):  # Increment version to force cache clear
+def load_ai_backend(_filters=None, _version=3):  # Increment version to force cache clear
     """Load and cache the AI analytics backend with filter support."""
     api_key = os.getenv('GEMINI_API_KEY')
     if not api_key:
