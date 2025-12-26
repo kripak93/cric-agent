@@ -196,9 +196,17 @@ You can view the exact data the AI would have analyzed in the tables above. The 
     def _detect_intent(self, query):
         """Detect user's intent from query"""
         query_lower = query.lower()
+        
+        # Handle common typos with simple fuzzy matching
+        query_lower = query_lower.replace('pwoerplay', 'powerplay')
+        query_lower = query_lower.replace('poweplay', 'powerplay')
+        query_lower = query_lower.replace('powerply', 'powerplay')
+        query_lower = query_lower.replace('bowler', 'bowler')  # Already correct but keeping pattern
+        query_lower = query_lower.replace('effecitive', 'effective')
+        query_lower = query_lower.replace('efectiv', 'effective')
 
         intent_keywords = {
-            'economy': ['best economy', 'lowest economy', 'most economical', 'efficient bowler'],
+            'economy': ['best economy', 'lowest economy', 'most economical', 'efficient bowler', 'effective bowler'],
             'wickets': ['most wickets', 'top wicket', 'highest wickets', 'best bowler'],
             'batting': ['best batsman', 'highest runs', 'most runs', 'top scorer', 'run scorer'],
             'strike_rate': ['strike rate', 'fastest scorer', 'aggressive', 'quickest', 'highest sr', 'best sr'],
@@ -551,6 +559,35 @@ You can view the exact data the AI would have analyzed in the tables above. The 
                 
                 if ground_bowling:
                     data_subsets['ground_comparison'] = pd.concat(ground_bowling)[['Ground', 'Team', 'O', 'W', 'Econ']]
+
+        # Fallback: if no specific data extracted, provide general bowling stats
+        if not data_subsets or ('general' in intents and not data_subsets):
+            df_copy = self.df.copy()
+            df_copy['Match_ID'] = df_copy['Match⬆'] + '_' + df_copy['Player']
+            
+            bowling_summary = df_copy.groupby('Match_ID').agg({
+                'Player': 'first',
+                'Team': 'first',
+                'O': 'max',
+                'R': 'max',
+                'W': 'max',
+                '0': 'sum'
+            })
+            
+            # Aggregate across matches
+            player_stats = bowling_summary.groupby('Player').agg({
+                'Team': 'first',
+                'O': 'sum',
+                'R': 'sum',
+                'W': 'sum',
+                '0': 'sum'
+            })
+            
+            player_stats = player_stats[player_stats['O'] >= 5.0]
+            player_stats['Econ'] = (player_stats['R'] / player_stats['O']).round(2)
+            player_stats['Dot%'] = ((player_stats['0'] / (player_stats['O'] * 6)) * 100).round(1)
+            
+            data_subsets['general_bowling'] = player_stats.nsmallest(10, 'Econ')[['Team', 'O', 'R', 'W', 'Econ', 'Dot%']]
 
         return data_subsets
 
