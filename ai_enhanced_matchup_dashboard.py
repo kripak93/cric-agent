@@ -721,13 +721,20 @@ def display_ai_chat(ai_backend):
             result = ai_backend.smart_analyze(query)
             response = result['gemini_response']
             data_extracted = result.get('data_extracted', 0)
+            error = result.get('error', None)
             
             # Show the data that was used
             st.markdown(f"**You:** {query}")
             
+            # Handle rate limit or errors
+            if error == 'rate_limit':
+                st.error("⚠️ Gemini API rate limit reached. See message below for details.")
+            elif error:
+                st.warning(f"⚠️ AI encountered an issue: {error}")
+            
             # Show extracted data for verification
             if data_extracted > 0:
-                with st.expander("📊 Data Used by AI (Verify Accuracy)", expanded=True):
+                with st.expander("📊 Data Extracted (View Accurate Statistics Here)", expanded=True):
                     st.info(f"✅ AI analyzed {data_extracted} data tables from your filtered dataset")
                     
                     # Get the actual data

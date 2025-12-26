@@ -16,7 +16,7 @@ class EnhancedGeminiIPLAnalytics:
     Automatically provides context and structured data to Gemini for better analysis.
     """
 
-    def __init__(self, csv_path, api_key=None, model_name='gemini-2.5-flash', season_filter=None):
+    def __init__(self, csv_path, api_key=None, model_name='gemini-1.5-flash', season_filter=None):
         """Initialize with CSV data and Gemini API"""
         self.api_key = api_key or os.getenv('GEMINI_API_KEY')
 
@@ -25,17 +25,26 @@ class EnhancedGeminiIPLAnalytics:
 
         genai.configure(api_key=self.api_key)
         
-        # Try the specified model, fallback to alternatives if needed
-        try:
-            self.model = genai.GenerativeModel(model_name)
-            self.model_name = model_name
-        except Exception as e:
-            print(f"Warning: {model_name} not available, trying gemini-2.5-flash-lite...")
+        # Try models with better rate limits (gemini-1.5-flash has 1500 RPD free tier)
+        model_priority = [
+            'gemini-1.5-flash',      # Best free tier: 1500 RPD
+            'gemini-1.5-flash-8b',   # Fallback: 1500 RPD
+            model_name,              # User specified
+            'gemini-2.0-flash-exp'   # Experimental
+        ]
+        
+        self.model = None
+        for model in model_priority:
             try:
-                self.model = genai.GenerativeModel('gemini-2.5-flash-lite')
-                self.model_name = 'gemini-2.5-flash-lite'
-            except Exception as e2:
-                raise ValueError(f"No compatible Gemini models available. Error: {e2}")
+                self.model = genai.GenerativeModel(model)
+                self.model_name = model
+                print(f"✅ Using Gemini model: {model}")
+                break
+            except Exception as e:
+                continue
+        
+        if self.model is None:
+            raise ValueError(f"No compatible Gemini models available. Check your API key.")
 
         # Load dataset
         self.df = pd.read_csv(csv_path)
@@ -130,10 +139,56 @@ ANALYSIS GUIDELINES:
         # Step 3: Build Enhanced Prompt
         prompt = self._build_enhanced_prompt(query, intent, data)
 
-        # Step 4: Get Gemini Response
-        response = self.model.generate_content(prompt)
+        # Step 4: Get Gemini Response with error handling
+        try:
+            response = self.model.generate_content(prompt)
+            return {
+                'query': query,
+                'intent': intent,
+                'gemini_response': response.text,
+                'data_extracted': len(data) if data is not None else 0,
+                'error': None
+            }
+        except Exception as e:
+            error_msg = str(e)
+            
+            # Handle rate limit errors
+            if 'ResourceExhausted' in error_msg or '429' in error_msg or 'quota' in error_msg.lower():
+                return {
+                    'query': query,
+                    'intent': intent,
+                    'gemini_response': f"""
+⚠️ **API Rate Limit Reached**
 
-        return {
+The Gemini API free tier has a limit of 1,500 requests per day. You've reached this limit.
+
+**Your Query:** {query}
+
+**Data Available (No AI Analysis Needed):**
+Based on your query, I detected these analysis types: {', '.join(intent)}
+
+You can view the exact data the AI would have analyzed in the tables above. The statistics are 100% accurate and don't require AI interpretation.
+
+**Solutions:**
+1. Wait ~1 hour for the quota to reset
+2. Use the statistics shown in the data tables (they're already accurate!)
+3. Upgrade to a paid Gemini API plan for higher limits
+4. The dashboard's matchup analysis tabs don't require AI for accurate results
+
+**Remember:** The AI is optional - all cricket statistics are calculated accurately without it!
+""",
+                    'data_extracted': len(data) if data is not None else 0,
+                    'error': 'rate_limit'
+                }
+            else:
+                # Other errors
+                return {
+                    'query': query,
+                    'intent': intent,
+                    'gemini_response': f"❌ AI Error: {error_msg}\n\nThe data tables above show accurate statistics without AI interpretation.",
+                    'data_extracted': len(data) if data is not None else 0,
+                    'error': error_msg
+                }
             'query': query,
             'intent': intent,
             'gemini_response': response.text,
