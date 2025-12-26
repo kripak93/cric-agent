@@ -25,12 +25,12 @@ class EnhancedGeminiIPLAnalytics:
 
         genai.configure(api_key=self.api_key)
         
-        # Try models with better rate limits (gemini-1.5-flash has 1500 RPD free tier)
+        # Try models with better rate limits (gemini-2.0-flash has 1500 RPD free tier)
         model_priority = [
-            'gemini-1.5-flash',      # Best free tier: 1500 RPD
-            'gemini-1.5-flash-8b',   # Fallback: 1500 RPD
-            model_name,              # User specified
-            'gemini-2.0-flash-exp'   # Experimental
+            'gemini-2.0-flash',           # Best free tier: 1500 RPD
+            'gemini-2.0-flash-lite',      # Lower tier option
+            'gemini-2.5-flash',           # Higher quality but 20 RPD limit
+            'gemini-2.5-pro'              # Best quality but slowest
         ]
         
         self.model = None
