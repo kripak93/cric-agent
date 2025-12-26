@@ -6,6 +6,12 @@ Interactive Streamlit dashboard for cricket matchup analysis
 import streamlit as st
 import plotly.graph_objects as go
 from simple_matchup_stats import SimpleMatchupStats
+from leaderboards import (
+    get_best_vs_pace, get_best_vs_spin,
+    get_best_bowlers_vs_rh, get_best_bowlers_vs_lh,
+    get_most_economical_bowlers, get_most_wickets,
+    get_best_by_ground, get_phase_leaders
+)
 
 
 # Page configuration
@@ -513,7 +519,17 @@ def main():
             "Head-to-Head (Batsman vs Bowler)",
             "Bowler vs Batting Hand",
             "Bowler Economy by Phase",
-            "Team Matchup"
+            "Team Matchup",
+            "🏆 Best vs Pace",
+            "🏆 Best vs Spin",
+            "🏆 Best Bowlers vs RH",
+            "🏆 Best Bowlers vs LH",
+            "🏆 Most Economical",
+            "🏆 Most Wickets",
+            "🏆 Ground Leaders",
+            "🏆 Powerplay Leaders",
+            "🏆 Middle Overs Leaders",
+            "🏆 Death Overs Leaders"
         ]
     )
     
@@ -538,6 +554,95 @@ def main():
         display_bowler_economy_by_phase(stats)
     elif analysis_type == "Team Matchup":
         display_team_matchup(stats)
+    
+    elif analysis_type == "🏆 Best vs Pace":
+        st.subheader("🏆 Best Batsmen vs Pace Bowling")
+        min_balls = st.slider("Minimum balls faced", 20, 200, 50)
+        leaderboard = get_best_vs_pace(stats, min_balls)
+        st.dataframe(leaderboard.head(20), use_container_width=True)
+        st.caption(f"Top 20 batsmen sorted by strike rate (min {min_balls} balls)")
+    
+    elif analysis_type == "🏆 Best vs Spin":
+        st.subheader("🏆 Best Batsmen vs Spin Bowling")
+        min_balls = st.slider("Minimum balls faced", 20, 200, 50)
+        leaderboard = get_best_vs_spin(stats, min_balls)
+        st.dataframe(leaderboard.head(20), use_container_width=True)
+        st.caption(f"Top 20 batsmen sorted by strike rate (min {min_balls} balls)")
+    
+    elif analysis_type == "🏆 Best Bowlers vs RH":
+        st.subheader("🏆 Best Bowlers vs Right-Handed Batsmen")
+        min_overs = st.slider("Minimum overs bowled", 3, 20, 5)
+        leaderboard = get_best_bowlers_vs_rh(stats, min_overs)
+        st.dataframe(leaderboard.head(20), use_container_width=True)
+        st.caption(f"Top 20 bowlers sorted by economy rate (min {min_overs} overs)")
+    
+    elif analysis_type == "🏆 Best Bowlers vs LH":
+        st.subheader("🏆 Best Bowlers vs Left-Handed Batsmen")
+        min_overs = st.slider("Minimum overs bowled", 3, 20, 5)
+        leaderboard = get_best_bowlers_vs_lh(stats, min_overs)
+        st.dataframe(leaderboard.head(20), use_container_width=True)
+        st.caption(f"Top 20 bowlers sorted by economy rate (min {min_overs} overs)")
+    
+    elif analysis_type == "🏆 Most Economical":
+        st.subheader("🏆 Most Economical Bowlers")
+        min_overs = st.slider("Minimum overs bowled", 5, 30, 10)
+        leaderboard = get_most_economical_bowlers(stats, min_overs)
+        st.dataframe(leaderboard.head(20), use_container_width=True)
+        st.caption(f"Top 20 bowlers sorted by economy rate (min {min_overs} overs)")
+    
+    elif analysis_type == "🏆 Most Wickets":
+        st.subheader("🏆 Most Wickets")
+        min_overs = st.slider("Minimum overs bowled", 5, 30, 10)
+        leaderboard = get_most_wickets(stats, min_overs)
+        st.dataframe(leaderboard.head(20), use_container_width=True)
+        st.caption(f"Top 20 wicket-takers (min {min_overs} overs)")
+    
+    elif analysis_type == "🏆 Ground Leaders":
+        st.subheader("🏆 Best Performers by Ground")
+        top_n = st.slider("Top N players per ground", 3, 10, 5)
+        leaderboard = get_best_by_ground(stats, top_n)
+        
+        for ground in leaderboard['Ground'].unique():
+            with st.expander(f"📍 {ground}"):
+                ground_leaders = leaderboard[leaderboard['Ground'] == ground]
+                st.dataframe(ground_leaders[['Player', 'Type', 'Team', 'Runs', 'Balls', 'SR']], 
+                           use_container_width=True, hide_index=True)
+    
+    elif analysis_type == "🏆 Powerplay Leaders":
+        st.subheader("🏆 Powerplay Leaders (Overs 1-6)")
+        batting, bowling, title = get_phase_leaders(stats, 'powerplay')
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown("### 🏏 Best Batsmen")
+            st.dataframe(batting, use_container_width=True)
+        with col2:
+            st.markdown("### ⚾ Best Bowlers")
+            st.dataframe(bowling, use_container_width=True)
+    
+    elif analysis_type == "🏆 Middle Overs Leaders":
+        st.subheader("🏆 Middle Overs Leaders (Overs 7-16)")
+        batting, bowling, title = get_phase_leaders(stats, 'middle')
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown("### 🏏 Best Batsmen")
+            st.dataframe(batting, use_container_width=True)
+        with col2:
+            st.markdown("### ⚾ Best Bowlers")
+            st.dataframe(bowling, use_container_width=True)
+    
+    elif analysis_type == "🏆 Death Overs Leaders":
+        st.subheader("🏆 Death Overs Leaders (Overs 17-20)")
+        batting, bowling, title = get_phase_leaders(stats, 'death')
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown("### 🏏 Best Batsmen")
+            st.dataframe(batting, use_container_width=True)
+        with col2:
+            st.markdown("### ⚾ Best Bowlers")
+            st.dataframe(bowling, use_container_width=True)
     
     # Footer
     st.markdown("---")
