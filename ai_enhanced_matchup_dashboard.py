@@ -7,7 +7,7 @@ import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 from simple_matchup_stats import SimpleMatchupStats
-from enhanced_gemini_ipl_backend import EnhancedGeminiIPLAnalytics
+from enhanced_gemini_ipl_backend_v2 import EnhancedGeminiIPLAnalytics  # Use v2 to force module reload
 import os
 from dotenv import load_dotenv
 
