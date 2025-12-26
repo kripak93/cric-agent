@@ -147,6 +147,7 @@ ANALYSIS GUIDELINES:
                 'intent': intent,
                 'gemini_response': response.text,
                 'data_extracted': len(data) if data is not None else 0,
+                'extracted_data': data,
                 'error': None
             }
         except Exception as e:
@@ -178,6 +179,7 @@ You can view the exact data the AI would have analyzed in the tables above. The 
 **Remember:** The AI is optional - all cricket statistics are calculated accurately without it!
 """,
                     'data_extracted': len(data) if data is not None else 0,
+                    'extracted_data': data,
                     'error': 'rate_limit'
                 }
             else:
@@ -187,6 +189,7 @@ You can view the exact data the AI would have analyzed in the tables above. The 
                     'intent': intent,
                     'gemini_response': f"❌ AI Error: {error_msg}\n\nThe data tables above show accurate statistics without AI interpretation.",
                     'data_extracted': len(data) if data is not None else 0,
+                    'extracted_data': data,
                     'error': error_msg
                 }
 

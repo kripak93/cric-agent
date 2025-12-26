@@ -733,15 +733,13 @@ def display_ai_chat(ai_backend):
                 st.warning(f"⚠️ AI encountered an issue: {error}")
             
             # Show extracted data for verification
-            if data_extracted > 0:
+            extracted_data = result.get('extracted_data', {})
+            if data_extracted > 0 and extracted_data:
                 with st.expander("📊 Data Extracted (View Accurate Statistics Here)", expanded=True):
                     st.info(f"✅ AI analyzed {data_extracted} data tables from your filtered dataset")
                     
-                    # Get the actual data
-                    intent = ai_backend._detect_intent(query)
-                    data = ai_backend._extract_relevant_data(intent)
-                    
-                    for data_type, df_data in data.items():
+                    # Use the actual extracted data from the result
+                    for data_type, df_data in extracted_data.items():
                         if df_data is not None and not df_data.empty:
                             st.markdown(f"**{data_type.upper().replace('_', ' ')}:**")
                             st.dataframe(df_data.head(10), use_container_width=True)
