@@ -189,11 +189,6 @@ You can view the exact data the AI would have analyzed in the tables above. The 
                     'data_extracted': len(data) if data is not None else 0,
                     'error': error_msg
                 }
-            'query': query,
-            'intent': intent,
-            'gemini_response': response.text,
-            'data_extracted': len(data) if data is not None else 0
-        }
 
     def _detect_intent(self, query):
         """Detect user's intent from query"""
