@@ -153,13 +153,17 @@ def get_ai_insights(ai_backend, query, context_data=None, filters=None):
 def display_ai_insight_box(ai_backend, query, context_data=None, filters=None):
     """Display AI insights in an expandable section."""
     if ai_backend:
-        with st.expander("🤖 AI-Powered Insights", expanded=False):
-            with st.spinner("Generating AI insights..."):
-                insights = get_ai_insights(ai_backend, query, context_data, filters)
-                if insights:
-                    st.markdown(insights)
-                else:
-                    st.info("AI insights not available for this analysis.")
+        with st.expander("🤖 AI-Powered Insights (Optional - May Contain Errors)", expanded=False):
+            st.warning("⚠️ **AI Disclaimer:** AI analysis may occasionally provide inaccurate information. Always verify critical decisions using the statistics shown above.")
+            
+            if st.button("Generate AI Insights", key=f"ai_btn_{hash(query)}"):
+                with st.spinner("Generating AI insights..."):
+                    insights = get_ai_insights(ai_backend, query, context_data, filters)
+                    if insights:
+                        st.markdown(insights)
+                        st.info("💡 **Tip:** Use AI insights for strategic ideas, but rely on the stats above for accuracy.")
+                    else:
+                        st.info("AI insights not available for this analysis.")
 
 
 def display_batsman_vs_bowling_type(stats, ai_backend, filters=None):
@@ -691,10 +695,16 @@ def display_ai_chat(ai_backend):
         st.session_state.chat_history = []
     
     # Display chat history
-    for i, (query, response) in enumerate(st.session_state.chat_history):
+    for i, chat_item in enumerate(st.session_state.chat_history):
+        if len(chat_item) == 2:
+            query, response = chat_item
+        else:
+            continue
+            
         with st.container():
             st.markdown(f"**You:** {query}")
             st.markdown(f"**AI:** {response}")
+            st.caption("💡 Always verify AI responses against the actual statistics in your analysis tabs")
             st.markdown("---")
     
     # Query input
@@ -710,13 +720,34 @@ def display_ai_chat(ai_backend):
         with st.spinner("AI is analyzing..."):
             result = ai_backend.smart_analyze(query)
             response = result['gemini_response']
+            data_extracted = result.get('data_extracted', 0)
+            
+            # Show the data that was used
+            st.markdown(f"**You:** {query}")
+            
+            # Show extracted data for verification
+            if data_extracted > 0:
+                with st.expander("📊 Data Used by AI (Verify Accuracy)", expanded=True):
+                    st.info(f"✅ AI analyzed {data_extracted} data tables from your filtered dataset")
+                    
+                    # Get the actual data
+                    intent = ai_backend._detect_intent(query)
+                    data = ai_backend._extract_relevant_data(intent)
+                    
+                    for data_type, df_data in data.items():
+                        if df_data is not None and not df_data.empty:
+                            st.markdown(f"**{data_type.upper().replace('_', ' ')}:**")
+                            st.dataframe(df_data.head(10), use_container_width=True)
+                            st.caption(f"Showing top {min(10, len(df_data))} of {len(df_data)} total entries")
+                    
+                    st.warning("⚠️ **Verify AI Response:** Check if the players and stats mentioned by the AI match the data tables above. AI may occasionally hallucinate.")
+            else:
+                st.warning("⚠️ No specific data extracted - AI response may be based on general knowledge")
+            
+            st.markdown(f"**AI:** {response}")
             
             # Add to history
             st.session_state.chat_history.append((query, response))
-            
-            # Display latest response
-            st.markdown(f"**You:** {query}")
-            st.markdown(f"**AI:** {response}")
             
             # Rerun to update chat history display
             st.rerun()
@@ -847,20 +878,24 @@ def main():
     st.sidebar.markdown("---")
     st.sidebar.markdown("### 🤖 AI Features")
     st.sidebar.info(
-        "AI-powered insights provide:\n"
+        "**💡 When to Use AI:**\n"
+        "• Natural language queries (AI Assistant tab)\n"
         "• Strategic recommendations\n"
-        "• Pattern recognition\n"
-        "• Tactical analysis\n"
-        "• Performance predictions\n"
-        "• Custom queries"
+        "• Comparative analysis across filters\n"
+        "• Pattern discovery\n\n"
+        "**📊 When to Trust the Stats:**\n"
+        "• Always verify with displayed metrics\n"
+        "• AI can occasionally provide incorrect info\n"
+        "• Stats shown are 100% accurate\n"
+        "• Use AI for ideas, not final decisions"
     )
     
     st.sidebar.markdown("---")
     st.sidebar.markdown("### 📖 About")
     st.sidebar.info(
-        "This dashboard combines accurate ball-by-ball "
-        "statistics with AI-powered insights from Google Gemini "
-        "to provide comprehensive cricket analytics."
+        "This dashboard provides accurate ball-by-ball "
+        "statistics with optional AI insights. "
+        "**Always trust the numbers over AI commentary.**"
     )
     
     # Main content area
