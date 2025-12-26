@@ -8,10 +8,9 @@ import streamlit as st
 
 
 def get_best_vs_pace(stats, min_balls=50):
-    """Get best batsmen against pace bowling."""
-    pace_data = stats.df[stats.df['Kind'].isin(['Fast', 'Fast Medium', 'Medium Fast'])]
+    """Get best batsmen overall (bowling type not available in data)."""
     
-    batsman_stats = pace_data.groupby('Batsman').agg({
+    batsman_stats = stats.df.groupby('Batsman').agg({
         'runs_this_ball': 'sum',
         'Batsman': 'count',
         '4': 'sum',
@@ -25,14 +24,13 @@ def get_best_vs_pace(stats, min_balls=50):
     batsman_stats['sr'] = ((batsman_stats['runs'] / batsman_stats['balls']) * 100).round(2)
     batsman_stats['boundary%'] = (((batsman_stats['4'] + batsman_stats['6']) / batsman_stats['balls']) * 100).round(1)
     
-    return batsman_stats.sort_values('sr', ascending=False)[['Team', 'runs', 'balls', 'avg', 'sr', '4', '6', 'boundary%']]
+    return batsman_stats.sort_values('runs', ascending=False)[['Team', 'runs', 'balls', 'avg', 'sr', '4', '6', 'boundary%']]
 
 
 def get_best_vs_spin(stats, min_balls=50):
-    """Get best batsmen against spin bowling."""
-    spin_data = stats.df[stats.df['Kind'].isin(['Leg Spin', 'Off Spin', 'Slow', 'Slow Left-arm Orthodox'])]
+    """Get best batsmen by strike rate (bowling type not available in data)."""
     
-    batsman_stats = spin_data.groupby('Batsman').agg({
+    batsman_stats = stats.df.groupby('Batsman').agg({
         'runs_this_ball': 'sum',
         'Batsman': 'count',
         '4': 'sum',

@@ -520,8 +520,8 @@ def main():
             "Bowler vs Batting Hand",
             "Bowler Economy by Phase",
             "Team Matchup",
-            "🏆 Best vs Pace",
-            "🏆 Best vs Spin",
+            "🏆 Top Run Scorers",
+            "🏆 Best Strike Rates",
             "🏆 Best Bowlers vs RH",
             "🏆 Best Bowlers vs LH",
             "🏆 Most Economical",
@@ -555,15 +555,15 @@ def main():
     elif analysis_type == "Team Matchup":
         display_team_matchup(stats)
     
-    elif analysis_type == "🏆 Best vs Pace":
-        st.subheader("🏆 Best Batsmen vs Pace Bowling")
+    elif analysis_type == "🏆 Top Run Scorers":
+        st.subheader("🏆 Top Run Scorers")
         min_balls = st.slider("Minimum balls faced", 20, 200, 50)
         leaderboard = get_best_vs_pace(stats, min_balls)
         st.dataframe(leaderboard.head(20), use_container_width=True)
-        st.caption(f"Top 20 batsmen sorted by strike rate (min {min_balls} balls)")
+        st.caption(f"Top 20 run scorers (min {min_balls} balls)")
     
-    elif analysis_type == "🏆 Best vs Spin":
-        st.subheader("🏆 Best Batsmen vs Spin Bowling")
+    elif analysis_type == "🏆 Best Strike Rates":
+        st.subheader("🏆 Best Strike Rates")
         min_balls = st.slider("Minimum balls faced", 20, 200, 50)
         leaderboard = get_best_vs_spin(stats, min_balls)
         st.dataframe(leaderboard.head(20), use_container_width=True)

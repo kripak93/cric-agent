@@ -7,6 +7,12 @@ import streamlit as st
 import plotly.graph_objects as go
 from simple_matchup_stats import SimpleMatchupStats
 from enhanced_gemini_ipl_backend_v2 import EnhancedGeminiIPLAnalytics
+from leaderboards import (
+    get_best_vs_pace, get_best_vs_spin,
+    get_best_bowlers_vs_rh, get_best_bowlers_vs_lh,
+    get_most_economical_bowlers, get_most_wickets,
+    get_best_by_ground, get_phase_leaders
+)
 import os
 from dotenv import load_dotenv
 
@@ -532,6 +538,16 @@ def main():
             "Bowler vs Batting Hand",
             "Bowler Economy by Phase",
             "Team Matchup",
+            "🏆 Best vs Pace",
+            "🏆 Best vs Spin",
+            "🏆 Best Bowlers vs RH",
+            "🏆 Best Bowlers vs LH",
+            "🏆 Most Economical",
+            "🏆 Most Wickets",
+            "🏆 Ground Leaders",
+            "🏆 Powerplay Leaders",
+            "🏆 Middle Overs Leaders",
+            "🏆 Death Overs Leaders",
             "💬 AI Cricket Assistant"
         ]
     )
